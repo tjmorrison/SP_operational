@@ -1,0 +1,211 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Created on Sat Jul 20 09:39:04 2024
+
+
+@author: Travis Morrison
+"""
+
+import requests
+import json
+import numpy as np
+from datetime import datetime
+
+
+
+def mesowest_to_smet(start_time, end_time,stid,make_input_plot):
+    """
+    
+
+    Parameters
+    ----------
+    start_time : TYPE
+        DESCRIPTION.
+    end_time : TYPE
+        DESCRIPTION.
+    stid : TYPE
+        DESCRIPTION.
+    make_input_plot : TYPE
+        DESCRIPTION.
+
+    Returns
+    -------
+    None.
+
+    """
+    
+    # build API url
+    mesowest_url = f'http://api.mesowest.net/v2/stations/timeseries?stid={stid}&token=3d5845d69f0e47aca3f810de0bb6fd3f&start={start_time}&end={end_time}'
+    
+    # Call mesowest API
+    response = requests.get(mesowest_url)
+    data = response.json()
+    observations = data['STATION'][0]['OBSERVATIONS']
+    data_length = len(observations['date_time'])
+    
+    #allocate the date time arrays
+    years = []
+    months = []
+    days = []
+    hours = []
+    minutes = []
+    seconds = []
+    
+    # Collect the datetime vars from the mesowest station
+    years = [int(dt[0:4]) for dt in observations['date_time']]
+    months = [int(dt[5:7]) for dt in observations['date_time']]
+    days = [int(dt[8:10]) for dt in observations['date_time']]
+    hours = [int(dt[11:13]) for dt in observations['date_time']]
+    minutes = [int(dt[14:16]) for dt in observations['date_time']]
+    seconds = [int(dt[17:19]) for dt in observations['date_time']]
+    
+    TA = [temp + 273.15 for temp in observations['air_temp_set_1']]
+    TSS = [temp + 273.15 for temp in observations['surface_temp_set_1']]
+    RH = [rh / 100.0 for rh in observations['relative_humidity_set_1']]
+    ISWR = observations['solar_radiation_set_1']
+    VW = observations['wind_speed_set_1']
+    DW = observations['wind_direction_set_1']
+    HS = [depth / 1000.0 for depth in observations['snow_depth_set_1']]
+    #PSUM = 
+
+    # Apply specific adjustments to HS 
+    HS[:450] = np.zeros(450)
+    HS[4196] = HS[4195]
+    HS[4323] = HS[4322]
+    HS[4197:4262] = [depth - 2 for depth in HS[4197:4262]]
+    TSG = [273.15] * len(HS)  # Ground surface temperature assumed to be 0°C
+    
+    # Replace NaNs with -999
+    TA = [-999 if val is None else val for val in TA]
+    TSS = [-999 if val is None else val for val in TSS]
+    RH = [-999 if val is None else val for val in RH]
+    ISWR = [-999 if val is None else val for val in ISWR]
+    VW = [-999 if val is None else val for val in VW]
+    DW = [-999 if val is None else val for val in DW]
+    HS = [-999 if val is None else val for val in HS]
+    TSG = [-999 if val is None else val for val in TSG]
+    
+    
+    #Removing negative solar radation values
+    for i in range(len(ISWR)):
+        if ISWR[i]<0:
+            ISWR[i] = 0
+    
+
+    # Print data out to SMET file
+    StationID = data['STATION'][0]['STID']
+    StationName = data['STATION'][0]['NAME']
+    latitude = float(data['STATION'][0]['LATITUDE'])
+    longitude = float(data['STATION'][0]['LONGITUDE'])
+    altitude = float(data['STATION'][0]['ELEV_DEM']) * 0.3048
+    UTM_zone = None  # Calculate UTM zone if needed
+    source = 'University of Utah EFD Lab'
+    
+    fileID = open(f'{StationID}.smet', 'w')
+    
+    fileID.write('SMET 1.1 ASCII\n')
+    fileID.write('[HEADER]\n')
+    fileID.write(f'station_id       = {StationID}\n')
+    fileID.write(f'station_name     = {StationName}\n')
+    fileID.write(f'latitude         = {latitude}\n')
+    fileID.write(f'longitude        = {longitude}\n')
+    fileID.write(f'altitude         = {altitude}\n')
+    #fileID.write(f'easting          = {easting}\n')
+    #fileID.write(f'northing         = {northing}\n')
+    fileID.write('nodata           = -999\n')
+    fileID.write('tz               = 1\n')
+    fileID.write(f'source           = {source}\n')
+    fileID.write(f'fields           = timestamp TA RH TSG TSS HS VW DW ISWR\n')
+    fileID.write('[DATA]\n')
+
+
+    date = []
+    for i in range(len(HS)):
+        date.append(datetime(years[i], months[i], days[i], hours[i], minutes[i], seconds[i]))
+        iso_date = date[i].isoformat()
+        fileID.write(f'{iso_date} {TA[i]:.2f} {RH[i]:.2f} {TSG[i]:.2f} {TSS[i]:.2f} {HS[i]:.2f} {VW[i]:.2f} {DW[i]:.2f} {ISWR[i]:.2f}\n')
+    
+    fileID.close()
+
+    # Make time series plot of the input data
+    if make_input_plot == True:
+        import matplotlib.pyplot as plt
+        from matplotlib.dates import DateFormatter, AutoDateLocator
+        
+        # Make plots
+        plt.figure(figsize=(10, 12))
+        
+        # Plot 1
+        plt.subplot(5, 1, 1)
+        plt.plot(date, VW)
+        plt.gca().xaxis.set_major_formatter(DateFormatter('%m/%d'))
+        plt.xlabel('UTC')
+        plt.ylabel('Wind Speed (m/s)')
+        plt.title('Atwater Peak SNOWPACK data')
+        plt.gca().xaxis.set_major_locator(AutoDateLocator())
+        plt.gcf().autofmt_xdate()
+        plt.grid(True)
+    
+    
+        # Plot 2
+        plt.subplot(5, 1, 2)
+        plt.plot(date, ISWR)
+        plt.gca().xaxis.set_major_formatter(DateFormatter('%m/%d'))
+        plt.xlabel('UTC')
+        plt.ylabel('Solar Radiation (W/m^2)')
+        plt.gca().xaxis.set_major_locator(AutoDateLocator())
+        plt.gcf().autofmt_xdate()
+        plt.grid(True)
+        
+        # Plot 3
+        plt.subplot(5, 1, 3)
+        plt.plot(date, TSS, label='Surface Temp')
+        plt.plot(date, TA, label='Air Temp')
+        plt.gca().xaxis.set_major_formatter(DateFormatter('%m/%d'))
+        plt.xlabel('UTC')
+        plt.ylabel('Temperatures (C)')
+        plt.legend()
+        plt.gca().xaxis.set_major_locator(AutoDateLocator())
+        plt.gcf().autofmt_xdate()
+        plt.grid(True)
+        
+        
+        # Plot 4
+        plt.subplot(5, 1, 4)
+        plt.plot(date, [rh * 100 for rh in RH])
+        plt.gca().xaxis.set_major_formatter(DateFormatter('%m/%d'))
+        plt.xlabel('UTC')
+        plt.ylabel('RH (%)')
+        plt.gca().xaxis.set_major_locator(AutoDateLocator())
+        plt.gcf().autofmt_xdate()
+        plt.grid(True)
+        
+    
+        # Plot 5
+        plt.subplot(5, 1, 5)
+        plt.plot(date, HS)
+        plt.gca().xaxis.set_major_formatter(DateFormatter('%m/%d'))
+        plt.xlabel('UTC')
+        plt.ylabel('Snow Depth (cm)')
+        plt.gca().xaxis.set_major_locator(AutoDateLocator())
+        plt.gcf().autofmt_xdate()
+        plt.grid(True)
+        
+        plt.tight_layout()
+        plt.savefig(stid + '_' + start_time + '_' + end_time + '_timeseries.png')
+        
+    
+
+if __name__ == "__main__":
+    start_time = '202310050000'  # YYYYMMDDHHMM UTC
+    end_time = '202406110000'
+    make_input_plot = True
+    stid = 'ATH20'
+    
+    mesowest_to_smet(start_time,end_time,stid,make_input_plot)
+    
+    
+    
+    
+    
