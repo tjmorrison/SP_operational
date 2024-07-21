@@ -4,9 +4,10 @@
 Created on Sat Jul 20 09:39:04 2024
 
 
+
 @author: Travis Morrison
 """
-
+import sys
 import requests
 import json
 import numpy as np
@@ -14,19 +15,25 @@ from datetime import datetime
 
 
 
-def mesowest_to_smet(start_time, end_time,stid,make_input_plot):
+def mesowest_to_smet(start_time, end_time,stid,make_input_plot,forecast_bool):
     """
+    Function to collect data from the mesowest api and create a snowpack input file
     
+    TODO: Add forecast padding option 
+          Streamline function with snowpat python library from the SLF
+          
 
     Parameters
     ----------
-    start_time : TYPE
+    start_time : string
+        start time for data in YYYYMMDDHHmmss. Time in UTC
+    end_time : string
+        end time for data in YYYYMMDDHHmmss. Time in UTC.
+    stid : string
+        station ID from Mesowest. Atwater is ATH20.
+    make_input_plot : boolean
         DESCRIPTION.
-    end_time : TYPE
-        DESCRIPTION.
-    stid : TYPE
-        DESCRIPTION.
-    make_input_plot : TYPE
+    forecast bool : boolean
         DESCRIPTION.
 
     Returns
@@ -34,9 +41,11 @@ def mesowest_to_smet(start_time, end_time,stid,make_input_plot):
     None.
 
     """
+    print("Builing *.smet file for " + stid + " from " + start_time + " to " + end_time)
     
     # build API url
     mesowest_url = f'http://api.mesowest.net/v2/stations/timeseries?stid={stid}&token=3d5845d69f0e47aca3f810de0bb6fd3f&start={start_time}&end={end_time}'
+    #print(mesowest_url)
     
     # Call mesowest API
     response = requests.get(mesowest_url)
@@ -193,17 +202,30 @@ def mesowest_to_smet(start_time, end_time,stid,make_input_plot):
         plt.grid(True)
         
         plt.tight_layout()
-        plt.savefig(stid + '_' + start_time + '_' + end_time + '_timeseries.png')
+        plt.savefig(stid + ''+ start_time + '_' + end_time + '_timeseries.png')
         
     
 
 if __name__ == "__main__":
+    
+    # Set default arguments
     start_time = '202310050000'  # YYYYMMDDHHMM UTC
     end_time = '202406110000'
-    make_input_plot = True
+    make_input_plot = False
     stid = 'ATH20'
+    forecast_bool = False
+
     
-    mesowest_to_smet(start_time,end_time,stid,make_input_plot)
+    # Set default values or use command-line arguments
+    var1 = sys.argv[1] if len(sys.argv) > 1 else start_time
+    var2 = sys.argv[2] if len(sys.argv) > 2 else end_time
+    var3 = sys.argv[3] if len(sys.argv) > 3 else stid
+    var4 = sys.argv[4] if len(sys.argv) > 4 else make_input_plot
+    var5 = sys.argv[5] if len(sys.argv) > 5 else forecast_bool
+    
+
+    # Call mesowest to smet converter
+    mesowest_to_smet(var1, var2, var3, var4, var5)
     
     
     
