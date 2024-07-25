@@ -11,7 +11,7 @@ import sys
 import requests
 import json
 import numpy as np
-from datetime import datetime
+from datetime import datetime, timedelta
 
 
 
@@ -204,12 +204,54 @@ def mesowest_to_smet(start_time, end_time,stid,make_input_plot,forecast_bool):
         plt.tight_layout()
         plt.savefig(stid + ''+ start_time + '_' + end_time + '_timeseries.png')
         
+def get_current_time():
+    """
+    Function to get current time and print time to file for bash script to call snowpack
     
+    TODO: 
+
+    Parameters
+    ----------
+    None.
+
+    Returns
+    -------
+    current_time : string
+        current datetime for data in YYYYMMDDHHmmss. Time in UTC
+
+    """
+        
+    # Compute end time based on most recent 0000 UTC observation
+    now = datetime.now(datetime.UTC)  # Current UTC datetime
+    end_year = now.strftime('%Y')
+    end_month = now.strftime('%m')
+    end_mon_10 = (now + timedelta(days=14)).strftime('%m')
+    end_day = now.strftime('%d')
+    end_10 = (now + timedelta(days=14)).strftime('%d')
+    end_hour = now.strftime('%H')
+    end_min = '00'  # For now, all simulations end at 0000 UTC
+
+    # Write end date to a file for use in SNOWPACK workflow
+    filename = 'smet_end_datetime.dat'
+    with open(filename, 'w') as file:
+        file.write(f'end_year = {end_year}\n')
+        file.write(f'end_month = {end_month}\n')
+        file.write(f'end_mon_10 = {end_mon_10}\n')
+        file.write(f'end_day = {end_day}\n')
+        file.write(f'end_10 = {end_10}\n')
+        file.write(f'end_hour = {end_hour}\n')
+        file.write(f'end_min = {end_min}\n')
+
+    print(f"End time written to {filename}")
+
+    current_time = str(end_year+end_month+end_day+end_hour+end_min) # YYYYMMDDHHMM UTC
+    print(current_time)
+    return current_time
 
 if __name__ == "__main__":
     
     # Set default arguments
-    start_time = '202310050000'  # YYYYMMDDHHMM UTC
+    start_time = get_current_time() #'202310050000'  # YYYYMMDDHHMM UTC
     end_time = '202406110000'
     make_input_plot = False
     stid = 'ATH20'
