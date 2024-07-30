@@ -203,7 +203,7 @@ def mesowest_to_smet(start_time, end_time,stid,make_input_plot,forecast_bool):
         plt.grid(True)
         
         plt.tight_layout()
-        plt.savefig(stid + ''+ start_time + '_' + end_time + '_timeseries.png')
+        plt.savefig('./figures/' + stid + ''+ start_time + '_' + end_time + '_timeseries.png')
         
 def get_current_time():
     """
@@ -253,12 +253,12 @@ if __name__ == "__main__":
     
     # Set default arguments
     end_time, end_year, end_month = get_current_time() # YYYYMMDDHHMM UTC
-    if (end_month < 10):
+    if (int(end_month) < 10):
         start_time = str(int(end_year) - 1) + '10050000' # YYYYMMDDHHMM UTC, always 1 year behind on oct 5 
     else:
         start_time = end_year + '10050000' # YYYYMMDDHHMM UTC 
-    make_input_plot = True
-    stid = 'ATH20'
+    make_input_plot = False
+    stid = 'ATH20' #Defualt is atwater study plot
     forecast_bool = False
 
     
