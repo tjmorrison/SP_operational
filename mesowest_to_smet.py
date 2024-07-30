@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+#%%
 """
 Created on Sat Jul 20 09:39:04 2024
 
@@ -11,7 +12,7 @@ import sys
 import requests
 import json
 import numpy as np
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 
 
@@ -222,7 +223,7 @@ def get_current_time():
     """
         
     # Compute end time based on most recent 0000 UTC observation
-    now = datetime.now(datetime.UTC)  # Current UTC datetime
+    now = datetime.now(timezone.utc)  # Current UTC datetime
     end_year = now.strftime('%Y')
     end_month = now.strftime('%m')
     end_mon_10 = (now + timedelta(days=14)).strftime('%m')
@@ -251,9 +252,9 @@ def get_current_time():
 if __name__ == "__main__":
     
     # Set default arguments
-    start_time = get_current_time() #'202310050000'  # YYYYMMDDHHMM UTC
-    end_time = '202406110000'
-    make_input_plot = False
+    start_time =  '202310050000'  # YYYYMMDDHHMM UTC
+    end_time = get_current_time()
+    make_input_plot = True
     stid = 'ATH20'
     forecast_bool = False
 
@@ -265,7 +266,7 @@ if __name__ == "__main__":
     var4 = sys.argv[4] if len(sys.argv) > 4 else make_input_plot
     var5 = sys.argv[5] if len(sys.argv) > 5 else forecast_bool
     
-
+    print(str(var1) + str(var2) + str(var3) + str(var4) + str(var5))
     # Call mesowest to smet converter
     mesowest_to_smet(var1, var2, var3, var4, var5)
     
