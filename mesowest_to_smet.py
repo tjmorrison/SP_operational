@@ -247,13 +247,16 @@ def get_current_time():
 
     current_time = str(end_year+end_month+end_day+end_hour+end_min) # YYYYMMDDHHMM UTC
     print(current_time)
-    return current_time
+    return current_time, end_year, end_month
 
 if __name__ == "__main__":
     
     # Set default arguments
-    start_time =  '202310050000'  # YYYYMMDDHHMM UTC
-    end_time = get_current_time()
+    end_time, end_year, end_month = get_current_time() # YYYYMMDDHHMM UTC
+    if (end_month < 10):
+        start_time = str(int(end_year) - 1) + '10050000' # YYYYMMDDHHMM UTC, always 1 year behind on oct 5 
+    else:
+        start_time = end_year + '10050000' # YYYYMMDDHHMM UTC 
     make_input_plot = True
     stid = 'ATH20'
     forecast_bool = False
@@ -265,8 +268,7 @@ if __name__ == "__main__":
     var3 = sys.argv[3] if len(sys.argv) > 3 else stid
     var4 = sys.argv[4] if len(sys.argv) > 4 else make_input_plot
     var5 = sys.argv[5] if len(sys.argv) > 5 else forecast_bool
-    
-    print(str(var1) + str(var2) + str(var3) + str(var4) + str(var5))
+
     # Call mesowest to smet converter
     mesowest_to_smet(var1, var2, var3, var4, var5)
     
