@@ -1,6 +1,7 @@
 # Data files and figures
 *.dat
 *.png
+*.smet
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
