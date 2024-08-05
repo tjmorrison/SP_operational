@@ -16,7 +16,7 @@ from datetime import datetime, timedelta, timezone
 
 
 
-def mesowest_to_smet(start_time, end_time,stid,make_input_plot,forecast_bool):
+def mesowest_to_smet(start_time, current_time,stid,make_input_plot,forecast_bool):
     """
     Function to collect data from the mesowest api and create a snowpack input file
     
@@ -42,10 +42,10 @@ def mesowest_to_smet(start_time, end_time,stid,make_input_plot,forecast_bool):
     None.
 
     """
-    print("Builing *.smet file for " + stid + " from " + start_time + " to " + end_time)
+    print("Building *.smet file for " + stid + " from " + start_time + " to " + current_time)
     
     # build API url
-    mesowest_url = f'http://api.mesowest.net/v2/stations/timeseries?stid={stid}&token=3d5845d69f0e47aca3f810de0bb6fd3f&start={start_time}&end={end_time}'
+    mesowest_url = f'http://api.mesowest.net/v2/stations/timeseries?stid={stid}&token=3d5845d69f0e47aca3f810de0bb6fd3f&start={start_time}&end={current_time}'
     #print(mesowest_url)
     
     # Call mesowest API
@@ -69,23 +69,49 @@ def mesowest_to_smet(start_time, end_time,stid,make_input_plot,forecast_bool):
     hours = [int(dt[11:13]) for dt in observations['date_time']]
     minutes = [int(dt[14:16]) for dt in observations['date_time']]
     seconds = [int(dt[17:19]) for dt in observations['date_time']]
+
+    # Print out current time and station last obs time to user
+    station_last_obs_time = str(years[-1])+str(months[-1]).zfill(2)+str(days[-1]).zfill(2)+str(hours[-1]).zfill(2)+str(minutes[-1]).zfill(2)
+    print("Station last obs time is: " + station_last_obs_time)
+    print("Current time is: " + current_time)
+    print("Simulation will run to: " + station_last_obs_time)
+
+    # Write end date to a file for use in SNOWPACK workflow - Note that this handles errors associated 
+    # with the current time not matching the last obs from the Wx station
+    filename = 'smet_end_datetime.dat'
+    with open(filename, 'w') as file:
+        file.write(f'end_year = {years[-1]}\n')
+        file.write(f'end_month = {str(months[-1]).zfill(2)}\n')
+        #file.write(f'end_mon_10 = {end_mon_10}\n')
+        file.write(f'end_day = {str(days[-1]).zfill(2)}\n')
+        #file.write(f'end_10 = {end_10}\n')
+        file.write(f'end_hour = {str(hours[-1]).zfill(2)}\n')
+        file.write(f'end_min = {str(minutes[-1]).zfill(2)}\n')
+
+    print(f"Station end time written to {filename}")
     
+    # Add specific vars adjustment - all stations
     TA = [temp + 273.15 for temp in observations['air_temp_set_1']]
     TSS = [temp + 273.15 for temp in observations['surface_temp_set_1']]
     RH = [rh / 100.0 for rh in observations['relative_humidity_set_1']]
     ISWR = observations['solar_radiation_set_1']
+    #Removing negative solar radation values
+    for i in range(len(ISWR)):
+        if ISWR[i]<0:
+            ISWR[i] = 0
     VW = observations['wind_speed_set_1']
     DW = observations['wind_direction_set_1']
     HS = [depth / 1000.0 for depth in observations['snow_depth_set_1']]
+    TSG = [273.15] * len(HS)  # Ground surface temperature assumed to be 0°C
     #PSUM = 
 
-    # Apply specific adjustments to HS 
+    # Apply specific station adjustments
+    # HS 
     HS[:450] = np.zeros(450)
     HS[4196] = HS[4195]
     HS[4323] = HS[4322]
     HS[4197:4262] = [depth - 2 for depth in HS[4197:4262]]
-    TSG = [273.15] * len(HS)  # Ground surface temperature assumed to be 0°C
-    
+ 
     # Replace NaNs with -999
     TA = [-999 if val is None else val for val in TA]
     TSS = [-999 if val is None else val for val in TSS]
@@ -95,13 +121,6 @@ def mesowest_to_smet(start_time, end_time,stid,make_input_plot,forecast_bool):
     DW = [-999 if val is None else val for val in DW]
     HS = [-999 if val is None else val for val in HS]
     TSG = [-999 if val is None else val for val in TSG]
-    
-    
-    #Removing negative solar radation values
-    for i in range(len(ISWR)):
-        if ISWR[i]<0:
-            ISWR[i] = 0
-    
 
     # Print data out to SMET file
     StationID = data['STATION'][0]['STID']
@@ -205,7 +224,7 @@ def mesowest_to_smet(start_time, end_time,stid,make_input_plot,forecast_bool):
         plt.tight_layout()
         plt.savefig('./figures/' + stid + ''+ start_time + '_' + end_time + '_timeseries.png')
         
-def get_current_time():
+def get_current_time(write_current_time = True):
     """
     Function to get current time and print time to file for bash script to call snowpack
     
@@ -224,39 +243,41 @@ def get_current_time():
         
     # Compute end time based on most recent 0000 UTC observation
     now = datetime.now(timezone.utc)  # Current UTC datetime
-    end_year = now.strftime('%Y')
-    end_month = now.strftime('%m')
-    end_mon_10 = (now + timedelta(days=14)).strftime('%m')
-    end_day = now.strftime('%d')
-    end_10 = (now + timedelta(days=14)).strftime('%d')
-    end_hour = now.strftime('%H')
-    end_min = '00'  # For now, all simulations end at 0000 UTC
+    current_year = now.strftime('%Y')
+    current_month = now.strftime('%m')
+    current_mon_10 = (now + timedelta(days=14)).strftime('%m')
+    current_day = now.strftime('%d')
+    current_10 = (now + timedelta(days=14)).strftime('%d')
+    current_hour = now.strftime('%H')
+    current_min = '00'  # For now, all simulations end at 0000 UTC
 
     # Write end date to a file for use in SNOWPACK workflow
-    filename = 'smet_end_datetime.dat'
-    with open(filename, 'w') as file:
-        file.write(f'end_year = {end_year}\n')
-        file.write(f'end_month = {end_month}\n')
-        file.write(f'end_mon_10 = {end_mon_10}\n')
-        file.write(f'end_day = {end_day}\n')
-        file.write(f'end_10 = {end_10}\n')
-        file.write(f'end_hour = {end_hour}\n')
-        file.write(f'end_min = {end_min}\n')
+    
+    if write_current_time == True:
+        filename = 'smet_current_datetime.dat'
+        with open(filename, 'w') as file:
+            file.write(f'current_year = {current_year}\n')
+            file.write(f'current_month = {current_month}\n')
+            file.write(f'current_mon_10 = {current_mon_10}\n')
+            file.write(f'current_day = {current_day}\n')
+            file.write(f'current_10 = {current_10}\n')
+            file.write(f'current_hour = {current_hour}\n')
+            file.write(f'current_min = {current_min}\n')
 
-    print(f"End time written to {filename}")
+        print(f"Current time written to {filename}")
 
-    current_time = str(end_year+end_month+end_day+end_hour+end_min) # YYYYMMDDHHMM UTC
-    print(current_time)
-    return current_time, end_year, end_month
+    current_time = str(current_year+current_month+current_day+current_hour+current_min) # YYYYMMDDHHMM UTC
+    #print('Current time is:' + current_time)
+    return current_time, current_year, current_month
 
 if __name__ == "__main__":
     
     # Set default arguments
-    end_time, end_year, end_month = get_current_time() # YYYYMMDDHHMM UTC
-    if (int(end_month) < 10):
-        start_time = str(int(end_year) - 1) + '10050000' # YYYYMMDDHHMM UTC, always 1 year behind on oct 5 
+    current_time, current_year, current_month = get_current_time() # YYYYMMDDHHMM UTC
+    if (int(current_month) < 10):
+        start_time = str(int(current_year) - 1) + '10050000' # YYYYMMDDHHMM UTC, always 1 year behind on oct 5 
     else:
-        start_time = end_year + '10050000' # YYYYMMDDHHMM UTC 
+        start_time = current_year + '10050000' # YYYYMMDDHHMM UTC 
     make_input_plot = False
     stid = 'ATH20' #Defualt is atwater study plot
     forecast_bool = False
@@ -264,7 +285,7 @@ if __name__ == "__main__":
     
     # Set default values or use command-line arguments
     var1 = sys.argv[1] if len(sys.argv) > 1 else start_time
-    var2 = sys.argv[2] if len(sys.argv) > 2 else end_time
+    var2 = sys.argv[2] if len(sys.argv) > 2 else current_time
     var3 = sys.argv[3] if len(sys.argv) > 3 else stid
     var4 = sys.argv[4] if len(sys.argv) > 4 else make_input_plot
     var5 = sys.argv[5] if len(sys.argv) > 5 else forecast_bool
