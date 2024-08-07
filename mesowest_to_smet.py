@@ -157,6 +157,9 @@ def mesowest_to_smet(start_time, current_time,stid,make_input_plot,forecast_bool
     
     fileID.close()
 
+    if forecast_bool == True:
+        x = 1 
+
     # Make time series plot of the input data
     if make_input_plot == True:
         import matplotlib.pyplot as plt
