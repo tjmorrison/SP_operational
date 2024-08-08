@@ -13,6 +13,7 @@ import requests
 import json
 import numpy as np
 from datetime import datetime, timedelta, timezone
+import hrrr
 
 
 
@@ -158,7 +159,32 @@ def mesowest_to_smet(start_time, current_time,stid,make_input_plot,forecast_bool
     fileID.close()
 
     if forecast_bool == True:
-        x = 1 
+        # Maximum number of parallel processes if being run parallel
+        maxprocesses = 10
+
+        # Site coordinates (currently Atwater based on google maps)
+        #!!! Need to double check, ... but should use vars above
+        sitelat = 40.591230
+        sitelon = -111.637711  #actual Atwater, yields HRRR grid point to east (2928 m elevation)
+        #sitelon = -111.660  # slightly down canyon, yields HRRR grid point to west (2825 m elevation)
+
+        forecast_start_time = datetime.now(datetime.timezone.utc) - datetime.timedelta(hours=1) 
+
+        forecast_df = hrrr.get_hrrr_forecast(forecast_start_time,sitelat,sitelon,siteelev = altitude,mlthick = 300,maxprocesses = maxprocesses)
+
+        #Need to append forecast data to file....
+                
+        # Columns to be selected
+        columns_to_write = ['A', 'B']
+
+        # Selecting the specific columns
+        df_selected = forecast_df[columns_to_write]
+
+        # Path to the existing text file
+        file_path = 'existing_file.txt'
+
+        # Write the selected columns to the file, appending it
+        df_selected.to_csv(f'{StationID}.smet', mode='a', header=False, index=False, sep='\t')
 
     # Make time series plot of the input data
     if make_input_plot == True:
