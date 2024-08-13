@@ -7,13 +7,16 @@ Created on Sat Jul 20 09:39:04 2024
 
 
 @author: Travis Morrison
+Add send email at end of running with printout
 """
 import sys
 import requests
 import json
 import numpy as np
 from datetime import datetime, timedelta, timezone
-import hrrr
+import pandas as pd
+#!!!
+#import hrrr
 
 
 
@@ -168,22 +171,23 @@ def mesowest_to_smet(start_time, current_time,stid,make_input_plot,forecast_bool
         sitelon = -111.637711  #actual Atwater, yields HRRR grid point to east (2928 m elevation)
         #sitelon = -111.660  # slightly down canyon, yields HRRR grid point to west (2825 m elevation)
 
-        forecast_start_time = datetime.now(datetime.timezone.utc) - datetime.timedelta(hours=1) 
+        forecast_start_time = datetime.now(timezone.utc) - timedelta(hours=1) 
 
-        forecast_df = hrrr.get_hrrr_forecast(forecast_start_time,sitelat,sitelon,siteelev = altitude,mlthick = 300,maxprocesses = maxprocesses)
-
+        #forecast_df = hrrr.get_hrrr_forecast(forecast_start_time,sitelat,sitelon,siteelev = altitude,mlthick = 300,maxprocesses = maxprocesses)
+        #load csv for debugging
+        forecast_df =  pd.read_csv('/Users/travismorrison/Documents/GitHub/UAC-Snowpack/hrrr-snowpack/hrrr_to_snowpack_2024031818.csv',header=0)
         #Need to append forecast data to file....
                 
         # Columns to be selected
-        columns_to_write = ['A', 'B']
+        columns_to_write = ['INIT (YYYYMMDDHH UTC)','T2m (K)', 'RH2m (%)','TSFC (K)','Snowfall (cm)','Wind Speed 10m (m/s)','Wind Direction 10 m (deg)','Downward Short Wave (W/m2)'] # Is TSFC surface temp, or need to derive from LW??
+
+        
+        #Need to correct date and add TSG (= 273.15)
 
         # Selecting the specific columns
         df_selected = forecast_df[columns_to_write]
 
-        # Path to the existing text file
-        file_path = 'existing_file.txt'
-
-        # Write the selected columns to the file, appending it
+        # Write the selected columns to the file, appending it 
         df_selected.to_csv(f'{StationID}.smet', mode='a', header=False, index=False, sep='\t')
 
     # Make time series plot of the input data
@@ -309,7 +313,7 @@ if __name__ == "__main__":
         start_time = current_year + '10050000' # YYYYMMDDHHMM UTC 
     make_input_plot = False
     stid = 'ATH20' #Defualt is atwater study plot
-    forecast_bool = False
+    forecast_bool = True
 
     
     # Set default values or use command-line arguments
