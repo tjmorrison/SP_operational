@@ -75,7 +75,10 @@ def mesowest_to_smet(start_time, current_time,stid,make_input_plot,forecast_bool
     seconds = [int(dt[17:19]) for dt in observations['date_time']]
 
     # Print out current time and station last obs time to user
-    station_last_obs_time = str(years[-1])+str(months[-1]).zfill(2)+str(days[-1]).zfill(2)+str(hours[-1]).zfill(2)+str(minutes[-1]).zfill(2)
+    station_last_obs_time = str(years[-1])+'-'+str(months[-1]).zfill(2)+'-'+str(days[-1]).zfill(2)+'T'+str(hours[-1]).zfill(2)+':'+str(minutes[-1]).zfill(2)+':00'
+    #end_date = datetime.strptime(station_last_obs_time, '%y%m%d%H%M%S')
+    print(station_last_obs_time)
+
     print("Station last obs time is: " + station_last_obs_time)
     print("Current time is: " + current_time)
     print("Simulation will run to: " + station_last_obs_time)
@@ -171,7 +174,7 @@ def mesowest_to_smet(start_time, current_time,stid,make_input_plot,forecast_bool
         sitelon = -111.637711  #actual Atwater, yields HRRR grid point to east (2928 m elevation)
         #sitelon = -111.660  # slightly down canyon, yields HRRR grid point to west (2825 m elevation)
 
-        forecast_start_time = datetime.now(timezone.utc) - timedelta(hours=1) 
+        #forecast_start_time = end_time#datetime.now(timezone.utc) - timedelta(hours=1) 
 
         #forecast_df = hrrr.get_hrrr_forecast(forecast_start_time,sitelat,sitelon,siteelev = altitude,mlthick = 300,maxprocesses = maxprocesses)
         #load csv for debugging
@@ -181,11 +184,14 @@ def mesowest_to_smet(start_time, current_time,stid,make_input_plot,forecast_bool
         # Columns to be selected
         columns_to_write = ['INIT (YYYYMMDDHH UTC)','T2m (K)', 'RH2m (%)','TSFC (K)','Snowfall (cm)','Wind Speed 10m (m/s)','Wind Direction 10 m (deg)','Downward Short Wave (W/m2)'] # Is TSFC surface temp, or need to derive from LW??
 
-        
+
         #Need to correct date and add TSG (= 273.15)
+        forecast_df[]
+
+        forecast_df['RH2m (%)'] = forecast_df['RH2m (%)']/100
 
         # Selecting the specific columns
-        df_selected = forecast_df[columns_to_write]
+        df_selected = forecast_df[columns_to_write][1:].round(2)
 
         # Write the selected columns to the file, appending it 
         df_selected.to_csv(f'{StationID}.smet', mode='a', header=False, index=False, sep='\t')
