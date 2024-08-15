@@ -76,8 +76,10 @@ def mesowest_to_smet(start_time, current_time,stid,make_input_plot,forecast_bool
 
     # Print out current time and station last obs time to user
     station_last_obs_time = str(years[-1])+'-'+str(months[-1]).zfill(2)+'-'+str(days[-1]).zfill(2)+'T'+str(hours[-1]).zfill(2)+':'+str(minutes[-1]).zfill(2)+':00'
+   
+    
     #end_date = datetime.strptime(station_last_obs_time, '%y%m%d%H%M%S')
-    print(station_last_obs_time)
+    print(datetime.strptime(station_last_obs_time, '%Y-%m-%dT%H:%M:%S'))
 
     print("Station last obs time is: " + station_last_obs_time)
     print("Current time is: " + current_time)
@@ -186,7 +188,7 @@ def mesowest_to_smet(start_time, current_time,stid,make_input_plot,forecast_bool
 
 
         #Need to correct date and add TSG (= 273.15)
-        forecast_df[]
+        forecast_df['INIT (YYYYMMDDHH UTC)'] =  [datetime.strptime(station_last_obs_time, '%Y-%m-%dT%H:%M:%S') + timedelta(hours=1) for x in range(48)] 
 
         forecast_df['RH2m (%)'] = forecast_df['RH2m (%)']/100
 
