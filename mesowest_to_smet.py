@@ -16,7 +16,7 @@ import numpy as np
 from datetime import datetime, timedelta, timezone
 import pandas as pd
 #!!!
-#import hrrr
+import hrrr_snowpack1_4 as hrrr
 
 
 
@@ -176,30 +176,43 @@ def mesowest_to_smet(start_time, current_time,stid,make_input_plot,forecast_bool
         sitelon = -111.637711  #actual Atwater, yields HRRR grid point to east (2928 m elevation)
         #sitelon = -111.660  # slightly down canyon, yields HRRR grid point to west (2825 m elevation)
 
-        #forecast_start_time = end_time#datetime.now(timezone.utc) - timedelta(hours=1) 
-
-        #forecast_df = hrrr.get_hrrr_forecast(forecast_start_time,sitelat,sitelon,siteelev = altitude,mlthick = 300,maxprocesses = maxprocesses)
+        forecast_start_time = datetime.strptime(station_last_obs_time, '%Y-%m-%dT%H:%M:%S')- timedelta(hours=1) #datetime.now(timezone.utc) - timedelta(hours=1) 
+        
+        forecast_df = hrrr.get_hrrr_forecast(forecast_start_time,sitelat,sitelon,siteelev = altitude,mlthick = 300,maxprocesses = maxprocesses)
+        
         #load csv for debugging
-        forecast_df =  pd.read_csv('/Users/travismorrison/Documents/GitHub/UAC-Snowpack/hrrr-snowpack/hrrr_to_snowpack_2024031818.csv',header=0)
-        #Need to append forecast data to file....
+        #forecast_df =  pd.read_csv('/Users/travismorrison/Documents/GitHub/UAC-Snowpack/hrrr-snowpack/hrrr_to_snowpack_2024031818.csv',header=0)
+  
                 
-        # Columns to be selected
-        columns_to_write = ['INIT (YYYYMMDDHH UTC)','T2m (K)', 'RH2m (%)','TSFC (K)','Snowfall (cm)','Wind Speed 10m (m/s)','Wind Direction 10 m (deg)','Downward Short Wave (W/m2)'] # Is TSFC surface temp, or need to derive from LW??
-
-
-        #Need to correct date and add TSG (= 273.15)
-        forecast_df['INIT (YYYYMMDDHH UTC)'] =  [datetime.strptime(station_last_obs_time, '%Y-%m-%dT%H:%M:%S') + timedelta(hours=1) for x in range(48)] 
-
+        #Need to correct date and add TSG (= 273.15), doesn't matter what col its added since we cherry pick cols
+        forecast_df.insert(0, "TSG", np.ones(49)*273.15)
+        #Fix date time based on forecast
+        forecast_df['INIT (YYYYMMDDHH UTC)'] =  [datetime.isoformat(datetime.strptime(station_last_obs_time, '%Y-%m-%dT%H:%M:%S') + timedelta(hours=x)) for x in range(49)] 
+        
+        #forecast_df['INIT (YYYYMMDDHH UTC)'] =  forecast_df['INIT (YYYYMMDDHH UTC)']
         forecast_df['RH2m (%)'] = forecast_df['RH2m (%)']/100
 
         # Selecting the specific columns
+         # Columns to be selected
+        columns_to_write = ['INIT (YYYYMMDDHH UTC)','T2m (K)', 'RH2m (%)','TSG' ,'TSFC (K)','Snowfall (cm)','Wind Speed 10m (m/s)','Wind Direction 10 m (deg)','Downward Short Wave (W/m2)'] # Is TSFC surface temp, or need to derive from LW??
         df_selected = forecast_df[columns_to_write][1:].round(2)
 
         # Write the selected columns to the file, appending it 
-        df_selected.to_csv(f'{StationID}.smet', mode='a', header=False, index=False, sep='\t')
+        df_selected.to_csv(f'{StationID}.smet', mode='a', header=False, index=False, sep=' ')
+
+        #add forecast data to plotting arrays
+        np.append(date, df_selected['INIT (YYYYMMDDHH UTC)'].to_list())
+        np.append(VW,df_selected['Wind Speed 10m (m/s)'].to_list())
+        np.append(TA,df_selected['T2m (K)'].to_list())
+        np.append(RH,df_selected['RH2m (%)'].to_list())
+        np.append(TSG,df_selected['TSG'].to_list())
+        np.append(DW,df_selected['Wind Direction 10 m (deg)'].to_list())
+        np.append(ISWR,df_selected['Downward Short Wave (W/m2)'].to_list())
+        np.append(HS,df_selected['Snowfall (cm)'].to_list())
 
     # Make time series plot of the input data
     if make_input_plot == True:
+        # need to append more dates for the plot
         import matplotlib.pyplot as plt
         from matplotlib.dates import DateFormatter, AutoDateLocator
         
@@ -263,7 +276,7 @@ def mesowest_to_smet(start_time, current_time,stid,make_input_plot,forecast_bool
         plt.grid(True)
         
         plt.tight_layout()
-        plt.savefig('./figures/' + stid + ''+ start_time + '_' + end_time + '_timeseries.png')
+        plt.savefig('./figures/' + stid + ''+ start_time + '_' + station_last_obs_time + '_+48hr_timeseries.png')
         
 def get_current_time(write_current_time = True):
     """
@@ -321,7 +334,7 @@ if __name__ == "__main__":
         start_time = current_year + '10050000' # YYYYMMDDHHMM UTC 
     make_input_plot = False
     stid = 'ATH20' #Defualt is atwater study plot
-    forecast_bool = True
+    forecast_bool = False
 
     
     # Set default values or use command-line arguments
