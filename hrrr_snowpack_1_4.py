@@ -32,9 +32,11 @@ warnings.filterwarnings('ignore')
 import time
 
 
+
+
 # Downloads HRRR from AWS, identifies or calculates needed variables, and finds values for closest grid point to site coordinates
 # Use grib_ls <gribfilename> on the commandline on the linux system for complete list of shortName, typeOfLevel, etc.
-def processhrrr (yr, mn, dy, hr, fhr):
+def processhrrr (yr, mn, dy, hr, fhr, sitelat, sitelon,siteelev, scratchdir):
 
     # File names and URLs on AWS and local disk
     serverfile = 'hrrr.t'+str(hr)+'z.wrfprsf'+str(fhr).zfill(2)+'.grib2'
@@ -282,7 +284,7 @@ def get_hrrr_forecast(forecast_start_time,sitelat,sitelon,siteelev = 2668.0,mlth
     Returns:
         _type_: _description_
     """
-    
+    # Create global var for the scratch dir
     # Scratch directory to temporarily store HRRR grib files
     scratchdir = './hrrr_scratch/'
 
@@ -305,7 +307,7 @@ def get_hrrr_forecast(forecast_start_time,sitelat,sitelon,siteelev = 2668.0,mlth
     start_time = time.time()
 
     fhrs = tuple(range(maxfhr+1))
-    items = [(yr,mn,dy,hr,fhr) for fhr in fhrs]
+    items = [(yr,mn,dy,hr,fhr,sitelat,sitelon, siteelev, scratchdir) for fhr in fhrs]
     processes = min(maxfhr+1, maxprocesses)
     print('Running with '+str(processes)+' processes')
     with Pool(processes=processes) as p:
