@@ -36,7 +36,7 @@ import time
 
 # Downloads HRRR from AWS, identifies or calculates needed variables, and finds values for closest grid point to site coordinates
 # Use grib_ls <gribfilename> on the commandline on the linux system for complete list of shortName, typeOfLevel, etc.
-def processhrrr (yr, mn, dy, hr, fhr, sitelat, sitelon,siteelev, scratchdir):
+def processhrrr (yr, mn, dy, hr, fhr, sitelat, sitelon,siteelev,mlthick, scratchdir):
 
     # File names and URLs on AWS and local disk
     serverfile = 'hrrr.t'+str(hr)+'z.wrfprsf'+str(fhr).zfill(2)+'.grib2'
@@ -203,19 +203,21 @@ def processhrrr (yr, mn, dy, hr, fhr, sitelat, sitelon,siteelev, scratchdir):
     slrdf = pd.DataFrame(data)
 
     # Load keys, scalar, and model and run random forest for slr
-    keys = np.load('./SingleSite_slr_model_keysAGL30.npy', allow_pickle=True)
-    scaler = np.load('./SingleSite_slr_model_scalerAGL30.npy', allow_pickle=True)[()]
-    model = np.load('./SingleSite_RF_slr_modelAGL30.pickle', allow_pickle=True)
-    data_norm = pd.DataFrame(scaler.transform(slrdf), index=slrdf.index, columns=slrdf.keys())
-    nearest_slr = float(model.predict(data_norm))
+    #keys = np.load('./SingleSite_slr_model_keysAGL30.npy', allow_pickle=True)
+    #scaler = np.load('./SingleSite_slr_model_scalerAGL30.npy', allow_pickle=True)[()]
+    #model = np.load('./SingleSite_RF_slr_modelAGL30.pickle', allow_pickle=True)
+    #data_norm = pd.DataFrame(scaler.transform(slrdf), index=slrdf.index, columns=slrdf.keys())
+    #nearest_slr = float(model.predict(data_norm))
 
     # Get wet bulb temperature profile for snow level calculation
     nearest_wbprofile = wet_bulb_temperature(hrrrdata.isobaricInhPa.values * units.hPa,
                                              hrrrdata.tpress.isel(x=x,y=y).values * units.degK,
                                              hrrrdata.tdpress.isel(x=x,y=y).values * units.degK)
+    
 
     # Determine wet-bulb zero height 
     nearest_wbzheight = np.round(calcwbzlevel(nearest_wbprofile.magnitude - 273.15, hrrrdata.hpress.isel(x=x,y=y).values),1)
+    
     
     # Adjust SLR if site below wet-bulb zero height
     # Decreases SLR linearly to zero at mlthick distance below wet-bulb zero height
@@ -307,7 +309,7 @@ def get_hrrr_forecast(forecast_start_time,sitelat,sitelon,siteelev = 2668.0,mlth
     start_time = time.time()
 
     fhrs = tuple(range(maxfhr+1))
-    items = [(yr,mn,dy,hr,fhr,sitelat,sitelon, siteelev, scratchdir) for fhr in fhrs]
+    items = [(yr,mn,dy,hr,fhr,sitelat,sitelon, siteelev, mlthick,scratchdir) for fhr in fhrs]
     processes = min(maxfhr+1, maxprocesses)
     print('Running with '+str(processes)+' processes')
     with Pool(processes=processes) as p:

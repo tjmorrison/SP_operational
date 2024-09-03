@@ -86,6 +86,7 @@ def mesowest_to_smet(start_time, current_time,stid,make_input_plot,forecast_bool
 
     # Write end date to a file for use in SNOWPACK workflow - Note that this handles errors associated 
     # with the current time not matching the last obs from the Wx station
+    # !!! Need to move and read from *.smet to handle forecasting data being appended 
     filename = 'smet_end_datetime.dat'
     with open(filename, 'w') as file:
         file.write(f'end_year = {years[-1]}\n')
@@ -184,9 +185,9 @@ def mesowest_to_smet(start_time, current_time,stid,make_input_plot,forecast_bool
   
                 
         #Need to correct date and add TSG (= 273.15), doesn't matter what col its added since we cherry pick cols
-        forecast_df.insert(0, "TSG", np.ones(49)*273.15)
+        forecast_df.insert(0, "TSG", np.ones(len(forecast_df['INIT (YYYYMMDDHH UTC)']))*273.15)
         #Fix date time based on forecast
-        forecast_df['INIT (YYYYMMDDHH UTC)'] =  [datetime.isoformat(datetime.strptime(station_last_obs_time, '%Y-%m-%dT%H:%M:%S') + timedelta(hours=x)) for x in range(49)] 
+        forecast_df['INIT (YYYYMMDDHH UTC)'] =  [datetime.isoformat(datetime.strptime(station_last_obs_time, '%Y-%m-%dT%H:%M:%S') + timedelta(hours=x)) for x in range(len(forecast_df['INIT (YYYYMMDDHH UTC)']))] 
         
         #forecast_df['INIT (YYYYMMDDHH UTC)'] =  forecast_df['INIT (YYYYMMDDHH UTC)']
         forecast_df['RH2m (%)'] = forecast_df['RH2m (%)']/100
