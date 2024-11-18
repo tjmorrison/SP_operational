@@ -78,11 +78,11 @@ def mesowest_to_smet(start_time, current_time,stid,make_input_plot,forecast_bool
    
     
     #end_date = datetime.strptime(station_last_obs_time, '%y%m%d%H%M%S')
-    print(datetime.strptime(station_last_obs_time, '%Y-%m-%dT%H:%M:%S'))
+    #print(datetime.strptime(station_last_obs_time, '%Y-%m-%dT%H:%M:%S'))
 
     print("Station last obs time is: " + station_last_obs_time)
     print("Current time is: " + current_time)
-    print("Simulation will run to: " + station_last_obs_time)
+    print("SMET Obs will be output to: " + station_last_obs_time)
 
     # Write end date to a file for use in SNOWPACK workflow - Note that this handles errors associated 
     # with the current time not matching the last obs from the Wx station
@@ -115,11 +115,11 @@ def mesowest_to_smet(start_time, current_time,stid,make_input_plot,forecast_bool
     #PSUM = 
 
     # Apply specific station adjustments
-    # HS 
-    HS[:450] = np.zeros(450)
-    HS[4196] = HS[4195]
-    HS[4323] = HS[4322]
-    HS[4197:4262] = [depth - 2 for depth in HS[4197:4262]]
+    # HS 2023-2024 corrections
+ #   HS[:450] = np.zeros(450)
+ #   HS[4196] = HS[4195]
+ #   HS[4323] = HS[4322]
+ #   HS[4197:4262] = [depth - 2 for depth in HS[4197:4262]]
  
     # Replace NaNs with -999
     TA = [-999 if val is None else val for val in TA]

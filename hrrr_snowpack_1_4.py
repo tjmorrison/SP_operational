@@ -220,6 +220,7 @@ def processhrrr (yr, mn, dy, hr, fhr, sitelat, sitelon,siteelev,mlthick, scratch
     
     
     # Adjust SLR if site below wet-bulb zero height
+    nearest_slr = 0 # allocate slr otherwise throws error if not assigned in if statement
     # Decreases SLR linearly to zero at mlthick distance below wet-bulb zero height
     if nearest_wbzheight > siteelev and nearest_wbzheight < siteelev + mlthick:
         nearest_slr = nearest_slr*(siteelev+mlthick-nearest_wbzheight)/mlthick
