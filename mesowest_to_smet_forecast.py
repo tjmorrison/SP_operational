@@ -15,7 +15,7 @@ import json
 import numpy as np
 from datetime import datetime, timedelta, timezone
 import pandas as pd
-import hrrr_snowpack_1_4 as hrrr
+#import hrrr_snowpack_1_4 as hrrr
 
 
 
@@ -84,21 +84,6 @@ def mesowest_to_smet(start_time, current_time,stid,make_input_plot,forecast_bool
     print("Current time is: " + current_time)
     print("SMET Obs will be output to: " + station_last_obs_time)
 
-    # Write end date to a file for use in SNOWPACK workflow - Note that this handles errors associated 
-    # with the current time not matching the last obs from the Wx station
-    # !!! Need to move and read from *.smet to handle forecasting data being appended 
-    filename = 'smet_end_datetime.dat'
-    with open(filename, 'w') as file:
-        file.write(f'end_year = {years[-1]}\n')
-        file.write(f'end_month = {str(months[-1]).zfill(2)}\n')
-        #file.write(f'end_mon_10 = {end_mon_10}\n')
-        file.write(f'end_day = {str(days[-1]).zfill(2)}\n')
-        #file.write(f'end_10 = {end_10}\n')
-        file.write(f'end_hour = {str(hours[-1]).zfill(2)}\n')
-        file.write(f'end_min = {str(minutes[-1]).zfill(2)}\n')
-
-    print(f"Station end time written to {filename}")
-    
     # Add specific vars adjustment - all stations
     TA = [temp + 273.15 for temp in observations['air_temp_set_1']]
     TSS = [temp + 273.15 for temp in observations['surface_temp_set_1']]
@@ -167,6 +152,8 @@ def mesowest_to_smet(start_time, current_time,stid,make_input_plot,forecast_bool
     fileID.close()
 
     if forecast_bool == True:
+        
+        print("Running in forecasting mode, appending HRRR forecast data")
         # Maximum number of parallel processes if being run parallel
         maxprocesses = 20
 
@@ -178,37 +165,58 @@ def mesowest_to_smet(start_time, current_time,stid,make_input_plot,forecast_bool
 
         forecast_start_time = datetime.strptime(station_last_obs_time, '%Y-%m-%dT%H:%M:%S')- timedelta(hours=1) #datetime.now(timezone.utc) - timedelta(hours=1) 
         
-        forecast_df = hrrr.get_hrrr_forecast(forecast_start_time,sitelat,sitelon,siteelev = altitude,mlthick = 300,maxprocesses = maxprocesses)
-        
-        #load csv for debugging
-        #forecast_df =  pd.read_csv('/Users/travismorrison/Documents/GitHub/UAC-Snowpack/hrrr-snowpack/hrrr_to_snowpack_2024031818.csv',header=0)
-  
-                
-        #Need to correct date and add TSG (= 273.15), doesn't matter what col its added since we cherry pick cols
-        forecast_df.insert(0, "TSG", np.ones(len(forecast_df['INIT (YYYYMMDDHH UTC)']))*273.15)
-        #Fix date time based on forecast
-        forecast_df['INIT (YYYYMMDDHH UTC)'] =  [datetime.isoformat(datetime.strptime(station_last_obs_time, '%Y-%m-%dT%H:%M:%S') + timedelta(hours=x)) for x in range(len(forecast_df['INIT (YYYYMMDDHH UTC)']))] 
-        
-        #forecast_df['INIT (YYYYMMDDHH UTC)'] =  forecast_df['INIT (YYYYMMDDHH UTC)']
-        forecast_df['RH2m (%)'] = forecast_df['RH2m (%)']/100
+        try:
+            forecast_df = hrrr.get_hrrr_forecast(forecast_start_time,sitelat,sitelon,siteelev = altitude,mlthick = 300,maxprocesses = maxprocesses)
+            
+            #load csv for debugging
+            #forecast_df =  pd.read_csv('/Users/travismorrison/Documents/GitHub/UAC-Snowpack/hrrr-snowpack/hrrr_to_snowpack_2024031818.csv',header=0)
+    
+                    
+            #Need to correct date and add TSG (= 273.15), doesn't matter what col its added since we cherry pick cols
+            forecast_df.insert(0, "TSG", np.ones(len(forecast_df['INIT (YYYYMMDDHH UTC)']))*273.15)
+            #Fix date time based on forecast
+            forecast_df['INIT (YYYYMMDDHH UTC)'] =  [datetime.isoformat(datetime.strptime(station_last_obs_time, '%Y-%m-%dT%H:%M:%S') + timedelta(hours=x)) for x in range(len(forecast_df['INIT (YYYYMMDDHH UTC)']))] 
+            
+            #forecast_df['INIT (YYYYMMDDHH UTC)'] =  forecast_df['INIT (YYYYMMDDHH UTC)']
+            forecast_df['RH2m (%)'] = forecast_df['RH2m (%)']/100
 
-        # Selecting the specific columns
-         # Columns to be selected
-        columns_to_write = ['INIT (YYYYMMDDHH UTC)','T2m (K)', 'RH2m (%)','TSG' ,'TSFC (K)','Snowfall (cm)','Wind Speed 10m (m/s)','Wind Direction 10 m (deg)','Downward Short Wave (W/m2)'] # Is TSFC surface temp, or need to derive from LW??
-        df_selected = forecast_df[columns_to_write][1:].round(2)
+            # Selecting the specific columns
+            # Columns to be selected
+            columns_to_write = ['INIT (YYYYMMDDHH UTC)','T2m (K)', 'RH2m (%)','TSG' ,'TSFC (K)','Snowfall (cm)','Wind Speed 10m (m/s)','Wind Direction 10 m (deg)','Downward Short Wave (W/m2)'] # Is TSFC surface temp, or need to derive from LW??
+            df_selected = forecast_df[columns_to_write][1:].round(2)
 
-        # Write the selected columns to the file, appending it 
-        df_selected.to_csv(f'{StationID}.smet', mode='a', header=False, index=False, sep=' ')
+            # Write the selected columns to the file, appending it 
+            df_selected.to_csv(f'{StationID}.smet', mode='a', header=False, index=False, sep=' ')
 
-        #add forecast data to plotting arrays
-        np.append(date, df_selected['INIT (YYYYMMDDHH UTC)'].to_list())
-        np.append(VW,df_selected['Wind Speed 10m (m/s)'].to_list())
-        np.append(TA,df_selected['T2m (K)'].to_list())
-        np.append(RH,df_selected['RH2m (%)'].to_list())
-        np.append(TSG,df_selected['TSG'].to_list())
-        np.append(DW,df_selected['Wind Direction 10 m (deg)'].to_list())
-        np.append(ISWR,df_selected['Downward Short Wave (W/m2)'].to_list())
-        np.append(HS,df_selected['Snowfall (cm)'].to_list())
+            #add forecast data to plotting arrays
+            np.append(date, df_selected['INIT (YYYYMMDDHH UTC)'].to_list())
+            np.append(VW,df_selected['Wind Speed 10m (m/s)'].to_list())
+            np.append(TA,df_selected['T2m (K)'].to_list())
+            np.append(RH,df_selected['RH2m (%)'].to_list())
+            np.append(TSG,df_selected['TSG'].to_list())
+            np.append(DW,df_selected['Wind Direction 10 m (deg)'].to_list())
+            np.append(ISWR,df_selected['Downward Short Wave (W/m2)'].to_list())
+            np.append(HS,df_selected['Snowfall (cm)'].to_list())
+        except:
+            print("Appending forecast failed")
+
+    # Write end datetime to a file for use in SNOWPACK workflow - Note that this handles errors associated 
+    # with the current time not matching the last obs from the Wx station
+    # !!! Need to move and read from *.smet to handle forecasting data being appended 
+    with open(f'{StationID}.smet') as f:
+        for line in f:
+            pass
+        last_line = line
+
+    filename = 'smet_end_datetime.dat'
+    with open(filename, 'w') as file:
+        file.write(f'end_year = {last_line[0:4]}\n')
+        file.write(f'end_month = {last_line[5:7]}\n')
+        #file.write(f'end_mon_10 = {end_mon_10}\n')
+        file.write(f'end_day = {last_line[8:10]}\n')
+        #file.write(f'end_10 = {end_10}\n')
+        file.write(f'end_hour = {last_line[11:13]}\n')
+        file.write(f'end_min = {last_line[14:16]}\n')
 
     # Make time series plot of the input data
     if make_input_plot == True:
