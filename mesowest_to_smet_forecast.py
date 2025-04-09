@@ -4,10 +4,8 @@
 """
 Created on Sat Jul 20 09:39:04 2024
 
-
-
 @author: Travis Morrison
-Add send email at end of running with printout
+Add email with log 
 """
 import sys
 import requests
@@ -88,22 +86,33 @@ def mesowest_to_smet(start_time, current_time,stid,make_input_plot,forecast_bool
     TA = [temp + 273.15 for temp in observations['air_temp_set_1']]
     TSS = [temp + 273.15 for temp in observations['surface_temp_set_1']]
     RH = [rh / 100.0 for rh in observations['relative_humidity_set_1']]
-    try:
-        ISWR = observations['solar_radiation_set_1']
-        #Removing negative solar radation values
-        for i in range(len(ISWR)):
-            if ISWR[i]<0:
-                ISWR[i] = 0
-        ISWR = [-999 if val is None else val for val in ISWR]
-    except:
-        RSWR = observations['outgoing_radiation_sw_set_1']
-        RSWR = [-999 if val is None else val for val in RSWR]
-
     VW = observations['wind_speed_set_1']
     DW = observations['wind_direction_set_1']
     HS = [depth / 1000.0 for depth in observations['snow_depth_set_1']]
     TSG = [273.15] * len(HS)  # Ground surface temperature assumed to be 0°C
     #PSUM = 
+    try:
+        ISWR = observations['solar_radiation_set_1']
+        # Handle None values
+        ISWR = [-999 if val is None else val for val in ISWR]
+        #Removing negative solar radation values
+        ISWR = [0 if 0 > val > -100 else val for val in ISWR]
+        ISWR = [val if val > -100 else -999 for val in ISWR]
+        # Check for consecutive -999 values in ISWR and interpolate if 6 or fewer consecutive hours
+        for i in range(len(ISWR)):
+            if ISWR[i] == -999:
+                start = i
+                while i < len(ISWR) and ISWR[i] == -999:
+                    i += 1
+                end = i
+                if end - start <= 6:  # If 6 or fewer consecutive hours
+                    if start > 0 and end < len(ISWR):  # Ensure bounds for interpolation
+                        step = (ISWR[end] - ISWR[start - 1]) / (end - start + 1)
+                        for j in range(start, end):
+                            ISWR[j] = ISWR[start - 1] + step * (j - start + 1)
+    except:
+        RSWR = observations['outgoing_radiation_sw_set_1']
+        RSWR = [-999 if val is None else val for val in RSWR]
 
     # Apply specific station adjustments
     # HS 2023-2024 corrections
@@ -116,7 +125,6 @@ def mesowest_to_smet(start_time, current_time,stid,make_input_plot,forecast_bool
     TA = [-999 if val is None else val for val in TA]
     TSS = [-999 if val is None else val for val in TSS]
     RH = [-999 if val is None else val for val in RH]
-    #ISWR = [-999 if val is None else val for val in ISWR]
     VW = [-999 if val is None else val for val in VW]
     DW = [-999 if val is None else val for val in DW]
     HS = [-999 if val is None else val for val in HS]
@@ -386,13 +394,13 @@ if __name__ == "__main__":
     
     # Set default arguments
     current_time, current_year, current_month = get_current_time() # YYYYMMDDHHMM UTC
-    start_time = '12090000' #MMDDHHMM UTC '10050000' #Oct 5th 00:00 UTC
+    start_time = '10050000' #MMDDHHMM UTC '10050000' #Oct 5th 00:00 UTC
     if (int(current_month) < 10):
         start_time = str(int(current_year) - 1) + start_time # YYYYMMDDHHMM UTC, always 1 year behind on oct 5 
     else:
         start_time = current_year + start_time # YYYYMMDDHHMM UTC 
     make_input_plot = False
-    stid = 'CRDUT' #Defualt is atwater study plot
+    stid = 'UKALF' #Defualt is atwater study plot
     forecast_bool = False
 
     
