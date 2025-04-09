@@ -97,6 +97,7 @@ def mesowest_to_smet(start_time, current_time,stid,make_input_plot,forecast_bool
         ISWR = [-999 if val is None else val for val in ISWR]
         #Removing negative solar radation values
         ISWR = [0 if 0 > val > -100 else val for val in ISWR]
+        #If values are less than -100, set to -999
         ISWR = [val if val > -100 else -999 for val in ISWR]
         # Check for consecutive -999 values in ISWR and interpolate if 6 or fewer consecutive hours
         for i in range(len(ISWR)):
@@ -112,7 +113,12 @@ def mesowest_to_smet(start_time, current_time,stid,make_input_plot,forecast_bool
                             ISWR[j] = ISWR[start - 1] + step * (j - start + 1)
     except:
         RSWR = observations['outgoing_radiation_sw_set_1']
-        RSWR = [-999 if val is None else val for val in RSWR]
+        # Handle None values
+        RSWR = [-999 if val is None else val for val in RSWR]         
+        #Removing negative solar radation values
+        RSWR = [0 if 0 > val > -100 else val for val in RSWR]
+        #If values are less than -100, set to -999
+        RSWR = [val if val > -100 else -999 for val in RSWR]
 
     # Apply specific station adjustments
     # HS 2023-2024 corrections
