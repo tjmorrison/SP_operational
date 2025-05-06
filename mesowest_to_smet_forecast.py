@@ -112,6 +112,7 @@ def mesowest_to_smet(start_time, current_time,stid,make_input_plot,forecast_bool
                         for j in range(start, end):
                             ISWR[j] = ISWR[start - 1] + step * (j - start + 1)
     except:
+        print("ISWR not found, using RSWR")
         RSWR = observations['outgoing_radiation_sw_set_1']
         # Handle None values
         RSWR = [-999 if val is None else val for val in RSWR]         
