@@ -13,6 +13,9 @@ import json
 import numpy as np
 from datetime import datetime, timedelta, timezone
 import pandas as pd
+import logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+
 #import hrrr_snowpack_1_4 as hrrr
 
 
@@ -47,8 +50,8 @@ def mesowest_to_smet(start_time, current_time,stid,make_input_plot,forecast_bool
     
     # build API url
     mesowest_url = f'http://api.mesowest.net/v2/stations/timeseries?stid={stid}&token=3d5845d69f0e47aca3f810de0bb6fd3f&start={start_time}&end={current_time}'
-    #print(mesowest_url)
-    
+    print("mesowest_url: " + mesowest_url)
+
     # Call mesowest API
     response = requests.get(mesowest_url)
     data = response.json()
@@ -84,13 +87,18 @@ def mesowest_to_smet(start_time, current_time,stid,make_input_plot,forecast_bool
 
     # Add specific vars adjustment - all stations
     TA = [temp + 273.15 for temp in observations['air_temp_set_1']]
-    TSS = [temp + 273.15 for temp in observations['surface_temp_set_1']]
+   
     RH = [rh / 100.0 for rh in observations['relative_humidity_set_1']]
     VW = observations['wind_speed_set_1']
     DW = observations['wind_direction_set_1']
     HS = [depth / 1000.0 for depth in observations['snow_depth_set_1']]
     TSG = [273.15] * len(HS)  # Ground surface temperature assumed to be 0°C
     #PSUM = 
+
+    ISWR_flag = False
+    RSWR_flag = False
+    ILWR_flag = False
+    RLWR_flag = False
     try:
         ISWR = observations['solar_radiation_set_1']
         # Handle None values
@@ -99,8 +107,9 @@ def mesowest_to_smet(start_time, current_time,stid,make_input_plot,forecast_bool
         ISWR = [0 if 0 > val > -100 else val for val in ISWR]
         #If values are less than -100, set to -999
         ISWR = [val if val > -100 else -999 for val in ISWR]
+        ISWR_flag = True
         # Check for consecutive -999 values in ISWR and interpolate if 6 or fewer consecutive hours
-        for i in range(len(ISWR)):
+        '''for i in range(len(ISWR)):
             if ISWR[i] == -999:
                 start = i
                 while i < len(ISWR) and ISWR[i] == -999:
@@ -110,9 +119,11 @@ def mesowest_to_smet(start_time, current_time,stid,make_input_plot,forecast_bool
                     if start > 0 and end < len(ISWR):  # Ensure bounds for interpolation
                         step = (ISWR[end] - ISWR[start - 1]) / (end - start + 1)
                         for j in range(start, end):
-                            ISWR[j] = ISWR[start - 1] + step * (j - start + 1)
+                            ISWR[j] = ISWR[start - 1] + step * (j - start + 1)'''
     except:
-        print("ISWR not found, using RSWR")
+        ISWR_flag = False
+        print("ISWR not found")
+    try:
         RSWR = observations['outgoing_radiation_sw_set_1']
         # Handle None values
         RSWR = [-999 if val is None else val for val in RSWR]         
@@ -120,17 +131,44 @@ def mesowest_to_smet(start_time, current_time,stid,make_input_plot,forecast_bool
         RSWR = [0 if 0 > val > -100 else val for val in RSWR]
         #If values are less than -100, set to -999
         RSWR = [val if val > -100 else -999 for val in RSWR]
+        RSWR_flag = True
+    except:
+        RSWR_flag = False
+        print("RSWR not found")
+    try:
+        ILWR = observations['incoming_radiation_lw_set_1']
+        # Handle None values
+        ILWR = [-999 if val is None else val for val in ILWR]
+        # Removing negative radiation values
+        ILWR = [0 if 0 > val > -100 else val for val in ILWR]
+        # If values are less than -100, set to -999
+        ILWR = [val if val > -100 else -999 for val in ILWR]
+        ILWR_flag = True
+    except:
+        print("ILWR not found")
+    try:
+        print("Checking for RLWR")
+        RLWR = observations['outgoing_radiation_lw_set_1']
+        # Handle None values
+        RLWR = [-999 if val is None else val for val in RLWR]
+        # Removing negative radiation values
+        RLWR = [0 if 0 > val > -100 else val for val in RLWR]
+        # If values are less than -100, set to -999
+        RLWR = [val if val > -100 else -999 for val in RLWR]
+        RLWR_flag = True
+    except:
+        print("RLWR not found")
 
-    # Apply specific station adjustments
-    # HS 2023-2024 corrections
- #   HS[:450] = np.zeros(450)
- #   HS[4196] = HS[4195]
- #   HS[4323] = HS[4322]
- #   HS[4197:4262] = [depth - 2 for depth in HS[4197:4262]]
- 
+    TSS_flag = False
+    try:
+         TSS = [temp + 273.15 for temp in observations['surface_temp_set_1']]
+         TSS = [-999 if val is None else val for val in TSS]
+         TSS_flag = True
+    except:
+        print("TSS not found")
+
     # Replace NaNs with -999
     TA = [-999 if val is None else val for val in TA]
-    TSS = [-999 if val is None else val for val in TSS]
     RH = [-999 if val is None else val for val in RH]
     VW = [-999 if val is None else val for val in VW]
     DW = [-999 if val is None else val for val in DW]
@@ -147,7 +185,7 @@ def mesowest_to_smet(start_time, current_time,stid,make_input_plot,forecast_bool
     except:
         altitude = 0
     UTM_zone = None  # Calculate UTM zone if needed
-    source = 'University of Utah EFD Lab'
+    source = 'Utah Avalanche Center - Synoptic Data'
     
     fileID = open(f'{StationID}.smet', 'w')
     
@@ -158,31 +196,52 @@ def mesowest_to_smet(start_time, current_time,stid,make_input_plot,forecast_bool
     fileID.write(f'latitude         = {latitude}\n')
     fileID.write(f'longitude        = {longitude}\n')
     fileID.write(f'altitude         = {altitude}\n')
-    #fileID.write(f'easting          = {easting}\n')
-    #fileID.write(f'northing         = {northing}\n')
     fileID.write('nodata           = -999\n')
     fileID.write('tz               = 1\n')
     fileID.write(f'source           = {source}\n')
-    fileID.write(f'fields           = timestamp TA RH TSG TSS HS VW DW ISWR\n')
+    
+    # Fields to include based on flags
+    fields = ['timestamp', 'TA', 'RH', 'TSG', 'HS', 'VW', 'DW']
+    if TSS_flag:
+        fields.append('TSS')
+    if ISWR_flag:
+        fields.append('ISWR')
+    if RSWR_flag:
+        fields.append('RSWR')
+    if ILWR_flag:
+        fields.append('ILWR')
+    if RLWR_flag:
+        fields.append('RLWR')
+
+    fileID.write(f'fields           = {" ".join(fields)}\n')
     fileID.write('[DATA]\n')
 
-
     date = []
-    #Try to write ISWR, if not write RSWR
+    # Try to write ISWR, RSWR, ILWR, RLWR, TSS depending on flags
     try: 
         for i in range(len(HS)):
             date.append(datetime(years[i], months[i], days[i], hours[i], minutes[i], seconds[i]))
             iso_date = date[i].isoformat()
-            fileID.write(f'{iso_date} {TA[i]:.2f} {RH[i]:.2f} {TSG[i]:.2f} {TSS[i]:.2f} {HS[i]:.2f} {VW[i]:.2f} {DW[i]:.2f} {ISWR[i]:.2f}\n')
+            line = f'{iso_date} {TA[i]:.2f} {RH[i]:.2f} {TSG[i]:.2f} {HS[i]:.2f} {VW[i]:.2f} {DW[i]:.2f}'
+            
+            if TSS_flag:
+                line += f' {TSS[i]:.2f}'
+            if ISWR_flag:
+                line += f' {ISWR[i]:.2f}'
+            if RSWR_flag:
+                line += f' {RSWR[i]:.2f}'
+            if ILWR_flag:
+                line += f' {ILWR[i]:.2f}'
+            if RLWR_flag:
+                line += f' {RLWR[i]:.2f}'
+            
+            fileID.write(line + '\n')
         
         fileID.close()
     except:
-        for i in range(len(HS)):
-            date.append(datetime(years[i], months[i], days[i], hours[i], minutes[i], seconds[i]))
-            iso_date = date[i].isoformat()
-            fileID.write(f'{iso_date} {TA[i]:.2f} {RH[i]:.2f} {TSG[i]:.2f} {TSS[i]:.2f} {HS[i]:.2f} {VW[i]:.2f} {DW[i]:.2f} {RSWR[i]:.2f}\n')
-        
+        logging.info("Error writing data to file.")
         fileID.close()
+
 
     if forecast_bool == True:
         
@@ -407,7 +466,7 @@ if __name__ == "__main__":
     else:
         start_time = current_year + start_time # YYYYMMDDHHMM UTC 
     make_input_plot = False
-    stid = 'UKALF' #Defualt is atwater study plot
+    stid = 'ATH20'#'ATH20'#'UKALF' #Defualt is atwater study plot
     forecast_bool = False
 
     
